@@ -1,0 +1,56 @@
+
+function _soracom_coverage_type_candidates() {
+  echo 'g'
+  echo 'jp'
+}
+
+function _soracom_group_id_candidates() {
+  soracom groups list --fetch-all | jq -r '.[] | [.groupId, .tags.name] | @tsv'
+}
+
+function _soracom_data_resource_id_candidates() {
+  soracom data list-source-resources --fetch-all | jq -r '.[] | [.resourceId, .resourceType, .tags.name] |@tsv'
+}
+
+function _soracom_sim_id_candidates() {
+  soracom sims list --fetch-all | jq -r '.[] | [.simId, .tags.name] |@tsv' 
+}
+
+function _soracom_imsi_candidates() {
+  soracom subscribers list --fetch-all | jq -r '.[] | [.imsi, .tags.name] |@tsv' 
+}
+
+function _soracom_soralet_id_candidates() {
+  soracom soralets list --fetch-all | jq -r '.[] | [.soraletId] |@tsv'
+}
+
+function _soracom_data_resource_type_candidates() {
+  echo 'Subscriber'
+  echo 'SigFoxDevice'
+  echo 'LoRaDevice'
+  echo 'Device'
+}
+
+_fzf_complete_soracom() {
+  if [[ "$@" =~ '--coverage-type *$' ]] then
+    _fzf_complete --no-sort --preview "echo hello {}" -- "$@" < <(_soracom_coverage_type_candidates )
+  elif [[ "$@" =~ '--imsi *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <(_soracom_imsi_candidates )
+  elif [[ "$@" =~ '--sim-id *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_sim_id_candidates )
+  elif [[ "$@" =~ '--group-id *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_group_id_candidates )
+  elif [[ "$@" =~ '--soralet-id *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_soralet_id_candidates )
+  elif [[ "$@" =~ 'data .*--resource-type *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_data_resource_type_candidates )
+  elif [[ "$@" =~ 'data .*--resource-id *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_data_resource_id_candidates )
+  else
+    eval "zle ${fzf_default_completion:-expand-or-complete}"
+  fi
+}
+
+_fzf_complete_soracom_post() {
+  awk '{print $1}'
+}

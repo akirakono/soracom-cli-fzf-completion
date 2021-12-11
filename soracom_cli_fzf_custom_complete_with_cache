@@ -1,0 +1,92 @@
+
+_fzf_complete_soracom() {
+  if [[ "$@" =~ '--coverage-type *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <(_soracom_coverage_type_candidates )
+  elif [[ "$@" =~ '--imsi *$' ]] then
+    _fzf_complete --no-sort --preview "$(_soracom_cli_fzf_complete_preview imsi .imsi)" -- "$@" < <(_soracom_imsi_candidates )
+  elif [[ "$@" =~ '--sim-id *$' ]] then
+    _fzf_complete --no-sort --preview "$(_soracom_cli_fzf_complete_preview  sim_id .simId)" -- "$@" < <( _soracom_sim_id_candidates )
+  elif [[ "$@" =~ '--group-id *$' ]] then
+    _fzf_complete --no-sort --preview "$(_soracom_cli_fzf_complete_preview group_id .groupId)" -- "$@" < <( _soracom_group_id_candidates )
+  elif [[ "$@" =~ '--soralet-id *$' ]] then
+    _fzf_complete --no-sort --preview "$(_soracom_cli_fzf_complete_preview soralet_id .soraletId)" -- "$@" < <( _soracom_soralet_id_candidates )
+  elif [[ "$@" =~ 'data .*--resource-type *$' ]] then
+    _fzf_complete --no-sort -- "$@" < <( _soracom_data_resource_type_candidates )
+  elif [[ "$@" =~ 'data .*--resource-id *$' ]] then
+    _fzf_complete --no-sort --preview "$(_soracom_cli_fzf_complete_preview data_resource_id .resourceId)" -- "$@" < <( _soracom_data_resource_id_candidates )
+  fi
+}
+
+_fzf_complete_soracom_post() {
+  awk '{print $1}'
+}
+
+_soracom_coverage_type_candidates() {
+  echo 'g'
+  echo 'jp'
+}
+
+_soracom_group_id_candidates() {
+  _soracom_fzf_memoize group_id "soracom groups list --fetch-all" \
+   | jq -r '.[] | [.groupId, .tags.name] | @tsv'
+}
+
+_soracom_data_resource_id_candidates() {
+  _soracom_fzf_memoize data_resource_id "soracom data list-source-resources --fetch-all" \
+   | jq -r '.[] | [.resourceId, .resourceType, .tags.name] |@tsv'
+}
+
+_soracom_sim_id_candidates() {
+  _soracom_fzf_memoize sim_id "soracom sims list --fetch-all" \
+   | jq -r '.[] | [.simId, .tags.name] |@tsv'
+}
+
+_soracom_imsi_candidates() {
+  _soracom_fzf_memoize imsi "soracom subscribers list --fetch-all" \
+   | jq -r '.[] | [.imsi, .tags.name] |@tsv'
+}
+
+_soracom_soralet_id_candidates() {
+  _soracom_fzf_memoize soralet_id "soracom soralets list --fetch-all" \
+    | jq -r '.[] | [.soraletId] |@tsv'
+}
+
+_soracom_data_resource_type_candidates() {
+  echo 'Subscriber'
+  echo 'SigFoxDevice'
+  echo 'LoRaDevice'
+  echo 'Device'
+}
+
+# check a valid cache file exsits or not
+_soracom_fzf_cache_valid() {
+  local cache_file_name="$1"
+
+  # declare an array
+  local -a ok 
+
+  # check the last modification time is in 5 minutes
+  # See http://zsh.sourceforge.net/Doc/Release/Expansion.html#Glob-Qualifiers
+  ok=( "$cache_file_name"(Nmm-5) )
+
+  # exit with 0 if valid cache exists (= num of array is 1), non-zero otherwise
+  (( $#ok ))
+}
+
+# memoize function result for each type
+_soracom_fzf_memoize() {
+  local type="$1"
+  local func="$2"
+
+  local cache_file_name="${TMPDIR:-/tmp}/soracom-value-complete-cache-${type}"
+  if ! _soracom_fzf_cache_valid "${cache_file_name}" ; then
+    eval "${func}" > "${cache_file_name}"
+  fi
+  cat "${cache_file_name}"
+}
+
+_soracom_cli_fzf_complete_preview() {
+  local type=$1
+  local key=$2
+  echo "cat \"${TMPDIR:-/tmp}/soracom-value-complete-cache-${type}\"  | jq -C '.[] | select( ${key} == \"{1}\") | [.tags.name, .]'"
+}
